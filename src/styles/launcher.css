@@ -23,7 +23,8 @@ input { font: inherit; }
 .launcher-hint { color: var(--text2); font-size: 13px; line-height: 1.6; max-width: 520px; margin: 0 auto; }
 .launcher-hint strong { color: var(--text); }
 
-.launcher-toolbar { display: flex; justify-content: flex-end; margin-bottom: 20px; }
+.launcher-toolbar { display: flex; align-items: center; gap: 8px; margin-bottom: 20px; }
+.launcher-toolbar-gap { flex: 1; }
 
 .project-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 16px; }
 .empty-msg { color: var(--text2); text-align: center; padding: 60px 0; font-size: 15px; grid-column: 1/-1; }
@@ -40,9 +41,11 @@ input { font: inherit; }
 .card-name { font-size: 15px; font-weight: 600; margin-bottom: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .card-desc { font-size: 12px; color: var(--text2); margin-bottom: 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .card-meta { font-size: 11px; color: var(--text2); }
-.card-delete { position: absolute; top: 8px; right: 8px; opacity: 0; color: var(--text2); font-size: 13px; padding: 2px 5px; border: 1px solid var(--border); border-radius: 4px; transition: opacity .15s; }
-.project-card:hover .card-delete { opacity: 1; }
+.card-actions { position: absolute; top: 8px; right: 8px; display: flex; gap: 4px; opacity: 0; transition: opacity .15s; }
+.project-card:hover .card-actions { opacity: 1; }
+.card-export, .card-delete { font-size: 12px; padding: 2px 5px; border: 1px solid var(--border); border-radius: 4px; }
 .card-delete:hover { color: #f85149; border-color: #f85149; }
+.card-export:hover { color: var(--accent); border-color: var(--accent); }
 
 /* New project dialog */
 .new-project-overlay {

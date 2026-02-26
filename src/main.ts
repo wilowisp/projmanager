@@ -8,22 +8,27 @@ import { openSettingsModal } from './components/SettingsModal'
 import { todayISO } from './utils/dates'
 import type { ZoomLevel } from './types'
 
-// ─── Determine Project ID from page meta tag ──────────────────────────────────
+// ─── Determine Project ID ─────────────────────────────────────────────────────
+// Priority: URL ?p=<id> param > meta tag (for backward compat with deployed folders)
 
 function getProjectId(): string | null {
+  const urlParam = new URLSearchParams(window.location.search).get('p')
+  if (urlParam) return urlParam
   return document.querySelector<HTMLMetaElement>('meta[name="pm-project-id"]')?.content ?? null
 }
 
 // ─── Main App ─────────────────────────────────────────────────────────────────
 
 async function initApp(): Promise<void> {
+  const urlParam = new URLSearchParams(window.location.search).get('p')
   const projectId = getProjectId()
   if (!projectId) return  // Launcher page
 
   const store = new Store(projectId)
 
-  // Initial load: GitHub API → static data.json → localStorage
-  await store.initialLoad()
+  // Skip static data.json fallback for URL-param projects (user-created, no deployed data.json)
+  const skipStaticLoad = !!urlParam && urlParam !== 'demo'
+  await store.initialLoad(skipStaticLoad)
 
   document.title = store.getProject().name
 
@@ -82,7 +87,6 @@ async function initApp(): Promise<void> {
 
   // ── Vertical scroll sync ──────────────────────────────────────────────────
 
-  // Must query after elements are in the DOM
   const tableWrap = leftPanel.querySelector<HTMLElement>('.task-table-wrap')!
   const ganttBodyWrap = rightPanel.querySelector<HTMLElement>('.gantt-body-wrap')!
   let syncLock = false

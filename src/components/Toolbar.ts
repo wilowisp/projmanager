@@ -20,11 +20,11 @@ const SYNC_ICONS: Record<SyncStatus, string> = {
   offline: '⚡',
 }
 const SYNC_TITLES: Record<SyncStatus, string> = {
-  idle:    'No GitHub sync configured — click ⚙ Settings to set up',
-  syncing: 'Saving to GitHub…',
-  ok:      'Saved to GitHub Pages',
-  error:   'GitHub sync failed — check Settings',
-  offline: 'Offline — changes saved locally',
+  idle:    'GitHub 미설정 — ⚙ Settings에서 구성',
+  syncing: 'GitHub에 저장 중…',
+  ok:      'GitHub Pages에 저장됨',
+  error:   'GitHub 동기화 실패 — Settings 확인',
+  offline: '오프라인 — 로컬에 저장됨',
 }
 
 export class Toolbar {
@@ -76,10 +76,10 @@ export class Toolbar {
           ${SYNC_ICONS[this.store.getSyncStatus()]} GitHub
         </button>
         <div class="separator"></div>
-        <button class="btn btn-ghost" id="tb-export" title="Export JSON">⬇</button>
-        <button class="btn btn-ghost" id="tb-import" title="Import JSON">⬆</button>
+        <button class="btn btn-ghost" id="tb-share" title="이 프로젝트를 JSON으로 내보내기">📤 공유</button>
+        <button class="btn btn-ghost" id="tb-import" title="JSON에서 가져오기">📥</button>
         <button class="btn btn-ghost" id="tb-settings" title="Settings">⚙</button>
-        <a class="btn btn-ghost" href="/" title="All Projects">⊞</a>
+        <a class="btn btn-ghost" href="${import.meta.env.BASE_URL}" title="모든 프로젝트">⊞</a>
       </div>
     `
 
@@ -117,7 +117,7 @@ export class Toolbar {
       this.events.onToggleCriticalPath((e.target as HTMLInputElement).checked)
     })
 
-    // Sync button: manual sync or open settings if unconfigured
+    // GitHub sync button: manual push; opens settings if not configured
     this.syncBtn = this.el.querySelector<HTMLButtonElement>('#tb-sync')!
     this.syncBtn.addEventListener('click', async () => {
       if (!loadGitHubSettings()) {
@@ -125,22 +125,23 @@ export class Toolbar {
         return
       }
       const ok = await this.store.syncNow()
-      if (!ok) showToast('Sync failed — check Settings', 'error')
-      else showToast('Saved to GitHub Pages', 'success')
+      if (!ok) showToast('GitHub 동기화 실패 — Settings 확인', 'error')
+      else showToast('GitHub Pages에 저장됨', 'success')
     })
 
-    // Export
-    this.el.querySelector('#tb-export')!.addEventListener('click', () => {
+    // Share (export) current project
+    this.el.querySelector('#tb-share')!.addEventListener('click', () => {
       const json = this.store.exportJSON()
       const blob = new Blob([json], { type: 'application/json' })
       const a = document.createElement('a')
       a.href = URL.createObjectURL(blob)
-      a.download = `${this.store.getProject().id}.json`
+      a.download = `${this.store.getProject().id}-${todayStr()}.json`
       a.click()
-      showToast('Exported', 'success')
+      URL.revokeObjectURL(a.href)
+      showToast('내보내기 완료', 'success')
     })
 
-    // Import
+    // Import project data
     this.el.querySelector('#tb-import')!.addEventListener('click', () => {
       const input = document.createElement('input')
       input.type = 'file'
@@ -152,9 +153,9 @@ export class Toolbar {
         reader.onload = () => {
           try {
             this.store.importJSON(reader.result as string)
-            showToast('Imported', 'success')
+            showToast('가져오기 완료', 'success')
           } catch {
-            showToast('Invalid JSON', 'error')
+            showToast('올바른 JSON 파일이 아닙니다', 'error')
           }
         }
         reader.readAsText(file)
@@ -188,4 +189,8 @@ export class Toolbar {
 
 function escHtml(s: string): string {
   return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+}
+
+function todayStr(): string {
+  return new Date().toISOString().split('T')[0]
 }

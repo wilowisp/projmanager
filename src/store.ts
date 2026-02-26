@@ -60,7 +60,6 @@ export class Store extends EventEmitter {
   private cpm!: CPMResult
   readonly projectId: string
   private syncStatus: SyncStatus = 'idle'
-  private syncTimer: ReturnType<typeof setTimeout> | null = null
   private onSyncStatusChange: ((s: SyncStatus) => void) | null = null
   private githubFilePath: string | null = null
 
@@ -103,38 +102,39 @@ export class Store extends EventEmitter {
   private saveLocal(): void {
     this.data.updatedAt = new Date().toISOString()
     localStorage.setItem(this.storageKey(), JSON.stringify(this.data))
+
+    // Keep launcher list in sync
+    this.updateLauncherEntry()
+  }
+
+  private updateLauncherEntry(): void {
+    try {
+      const key = 'pm_launcher_projects'
+      const list: Array<{ id: string; name: string; description: string; updatedAt: string; path: string }> =
+        JSON.parse(localStorage.getItem(key) ?? '[]')
+      const idx = list.findIndex(p => p.id === this.projectId)
+      const entry = {
+        id: this.projectId,
+        name: this.data.name,
+        description: this.data.description ?? '',
+        updatedAt: this.data.updatedAt,
+        path: `projects/demo/?p=${this.projectId}`,
+      }
+      if (idx >= 0) list[idx] = entry
+      else list.push(entry)
+      localStorage.setItem(key, JSON.stringify(list))
+    } catch { /* ignore */ }
   }
 
   /**
    * Load data on app start.
-   * Priority: GitHub API (freshest) → static data.json → localStorage
+   * Data is stored in localStorage only. GitHub sync is manual (via syncNow).
+   * @param skipStaticLoad  Set true for user-created projects (no deployed data.json exists)
    */
-  async initialLoad(): Promise<void> {
-    const gh = loadGitHubSettings()
-    if (gh) {
-      this.githubFilePath = deriveFilePath(gh)
-      // Try GitHub API first (always fresh)
-      this.setSyncStatus('syncing')
-      const remote = await readFromGitHub<ProjectData>(gh, this.githubFilePath)
-      if (remote) {
-        // Use remote if it's newer than local
-        const localUpdated = new Date(this.data.updatedAt).getTime()
-        const remoteUpdated = new Date(remote.updatedAt).getTime()
-        if (remoteUpdated >= localUpdated) {
-          this.data = remote
-          this.saveLocal()
-          this.rebuildCPM()
-          this.emit({ type: 'data:load' })
-        }
-        this.setSyncStatus('ok')
-        return
-      }
-      this.setSyncStatus('error')
-    }
-
-    // Fallback: static data.json from GitHub Pages URL
+  async initialLoad(skipStaticLoad = false): Promise<void> {
     const hasLocal = !!localStorage.getItem(this.storageKey())
-    if (!hasLocal) {
+    if (!hasLocal && !skipStaticLoad) {
+      // First visit to a deployed project (e.g. demo) — load bundled data.json
       await this.loadFromStaticUrl('./data.json')
     }
   }
@@ -151,23 +151,7 @@ export class Store extends EventEmitter {
     } catch { /* offline or no data.json */ }
   }
 
-  /** Schedule a debounced sync to GitHub (300ms after last change) */
-  private scheduleSyncToGitHub(): void {
-    const gh = loadGitHubSettings()
-    if (!gh || !this.githubFilePath) return
-    if (this.syncTimer) clearTimeout(this.syncTimer)
-    this.syncTimer = setTimeout(() => void this.pushToGitHub(gh), 1500)
-  }
-
-  private async pushToGitHub(gh: GitHubSettings): Promise<void> {
-    if (!this.githubFilePath) return
-    this.setSyncStatus('syncing')
-    const json = JSON.stringify(this.data, null, 2)
-    const ok = await writeToGitHub(gh, this.githubFilePath, json)
-    this.setSyncStatus(ok ? 'ok' : 'error')
-  }
-
-  /** Manually trigger a sync (e.g. from toolbar button) */
+  /** Manually push current data to GitHub (triggered by toolbar sync button) */
   async syncNow(): Promise<boolean> {
     const gh = loadGitHubSettings()
     if (!gh) return false
@@ -179,10 +163,29 @@ export class Store extends EventEmitter {
     return ok
   }
 
-  /** Call after saving, to persist and schedule GitHub sync */
+  /** Pull latest data from GitHub and merge (manual, triggered by user) */
+  async pullFromGitHub(): Promise<boolean> {
+    const gh = loadGitHubSettings()
+    if (!gh) return false
+    if (!this.githubFilePath) this.githubFilePath = deriveFilePath(gh)
+    this.setSyncStatus('syncing')
+    const remote = await readFromGitHub<ProjectData>(gh, this.githubFilePath)
+    if (!remote) { this.setSyncStatus('error'); return false }
+    const localUpdated = new Date(this.data.updatedAt).getTime()
+    const remoteUpdated = new Date(remote.updatedAt).getTime()
+    if (remoteUpdated > localUpdated) {
+      this.data = remote
+      this.saveLocal()
+      this.rebuildCPM()
+      this.emit({ type: 'data:load' })
+    }
+    this.setSyncStatus('ok')
+    return true
+  }
+
+  /** Call after saving — persists to localStorage only (GitHub sync is manual) */
   private save(): void {
     this.saveLocal()
-    this.scheduleSyncToGitHub()
   }
 
   exportJSON(): string {
@@ -431,3 +434,6 @@ export class Store extends EventEmitter {
 
   getDefaultZoom(): ZoomLevel { return this.data.settings.defaultZoom }
 }
+
+// Keep GitHub types exported for SettingsModal etc.
+export type { GitHubSettings }
