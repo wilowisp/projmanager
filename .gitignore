@@ -1,0 +1,8 @@
+node_modules/
+dist/
+*.local
+.env
+tsconfig.tsbuildinfo
+.claude/
+# compiled JS outputs in src/ (Vite handles TS directly)
+src/**/*.js

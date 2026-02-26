@@ -1,0 +1,159 @@
+{
+  "id": "demo",
+  "name": "Demo Project",
+  "description": "Sample project demonstrating all features",
+  "startDate": "2026-01-01",
+  "endDate": "2026-12-31",
+  "createdAt": "2026-01-01T00:00:00.000Z",
+  "updatedAt": "2026-01-01T00:00:00.000Z",
+  "tasks": [
+    {
+      "id": "t1", "wbs": "1", "title": "Phase 1: Planning", "assignee": "",
+      "status": "done", "priority": "high",
+      "startDate": "2026-01-05", "endDate": "2026-01-16", "duration": 12,
+      "progress": 100, "predecessors": [], "parentId": null,
+      "collapsed": false, "color": null, "notes": "", "isMilestone": false
+    },
+    {
+      "id": "t2", "wbs": "1.1", "title": "Requirements Analysis", "assignee": "Alice",
+      "status": "done", "priority": "high",
+      "startDate": "2026-01-05", "endDate": "2026-01-09", "duration": 5,
+      "progress": 100, "predecessors": [], "parentId": "t1",
+      "collapsed": false, "color": null, "notes": "", "isMilestone": false
+    },
+    {
+      "id": "t3", "wbs": "1.2", "title": "Project Charter", "assignee": "Bob",
+      "status": "done", "priority": "medium",
+      "startDate": "2026-01-12", "endDate": "2026-01-16", "duration": 5,
+      "progress": 100,
+      "predecessors": [{ "taskId": "t2", "type": "FS", "lag": 0 }],
+      "parentId": "t1",
+      "collapsed": false, "color": null, "notes": "", "isMilestone": false
+    },
+    {
+      "id": "t4", "wbs": "2", "title": "Phase 2: Design", "assignee": "",
+      "status": "in_progress", "priority": "high",
+      "startDate": "2026-01-19", "endDate": "2026-02-13", "duration": 26,
+      "progress": 60, "predecessors": [], "parentId": null,
+      "collapsed": false, "color": null, "notes": "", "isMilestone": false
+    },
+    {
+      "id": "t5", "wbs": "2.1", "title": "System Architecture", "assignee": "Alice",
+      "status": "done", "priority": "critical",
+      "startDate": "2026-01-19", "endDate": "2026-01-30", "duration": 12,
+      "progress": 100,
+      "predecessors": [{ "taskId": "t3", "type": "FS", "lag": 0 }],
+      "parentId": "t4",
+      "collapsed": false, "color": null, "notes": "", "isMilestone": false
+    },
+    {
+      "id": "t6", "wbs": "2.2", "title": "Database Schema", "assignee": "Charlie",
+      "status": "in_progress", "priority": "high",
+      "startDate": "2026-01-26", "endDate": "2026-02-06", "duration": 12,
+      "progress": 50,
+      "predecessors": [{ "taskId": "t5", "type": "SS", "lag": 5 }],
+      "parentId": "t4",
+      "collapsed": false, "color": null, "notes": "", "isMilestone": false
+    },
+    {
+      "id": "t7", "wbs": "2.3", "title": "UI/UX Wireframes", "assignee": "Diana",
+      "status": "in_progress", "priority": "medium",
+      "startDate": "2026-02-02", "endDate": "2026-02-13", "duration": 12,
+      "progress": 30,
+      "predecessors": [{ "taskId": "t5", "type": "FS", "lag": 2 }],
+      "parentId": "t4",
+      "collapsed": false, "color": null, "notes": "", "isMilestone": false
+    },
+    {
+      "id": "t8", "wbs": "3", "title": "Phase 3: Development", "assignee": "",
+      "status": "not_started", "priority": "high",
+      "startDate": "2026-02-16", "endDate": "2026-05-29", "duration": 103,
+      "progress": 0,
+      "predecessors": [{ "taskId": "t4", "type": "FS", "lag": 0 }],
+      "parentId": null,
+      "collapsed": false, "color": null, "notes": "", "isMilestone": false
+    },
+    {
+      "id": "t9", "wbs": "3.1", "title": "Backend API", "assignee": "Charlie",
+      "status": "not_started", "priority": "critical",
+      "startDate": "2026-02-16", "endDate": "2026-04-10", "duration": 54,
+      "progress": 0,
+      "predecessors": [{ "taskId": "t6", "type": "FS", "lag": 0 }],
+      "parentId": "t8",
+      "collapsed": false, "color": null, "notes": "", "isMilestone": false
+    },
+    {
+      "id": "t10", "wbs": "3.2", "title": "Frontend Implementation", "assignee": "Diana",
+      "status": "not_started", "priority": "high",
+      "startDate": "2026-03-02", "endDate": "2026-05-01", "duration": 61,
+      "progress": 0,
+      "predecessors": [{ "taskId": "t7", "type": "FS", "lag": 0 }, { "taskId": "t9", "type": "SS", "lag": 10 }],
+      "parentId": "t8",
+      "collapsed": false, "color": null, "notes": "", "isMilestone": false
+    },
+    {
+      "id": "t11", "wbs": "3.3", "title": "Integration", "assignee": "Alice",
+      "status": "not_started", "priority": "high",
+      "startDate": "2026-04-13", "endDate": "2026-05-08", "duration": 26,
+      "progress": 0,
+      "predecessors": [{ "taskId": "t9", "type": "FS", "lag": 0 }],
+      "parentId": "t8",
+      "collapsed": false, "color": null, "notes": "", "isMilestone": false
+    },
+    {
+      "id": "t12", "wbs": "3.4", "title": "Unit Tests", "assignee": "Bob",
+      "status": "not_started", "priority": "medium",
+      "startDate": "2026-04-27", "endDate": "2026-05-29", "duration": 33,
+      "progress": 0,
+      "predecessors": [{ "taskId": "t10", "type": "FF", "lag": 0 }],
+      "parentId": "t8",
+      "collapsed": false, "color": null, "notes": "", "isMilestone": false
+    },
+    {
+      "id": "t13", "wbs": "4", "title": "Phase 4: QA & Launch", "assignee": "",
+      "status": "not_started", "priority": "critical",
+      "startDate": "2026-06-01", "endDate": "2026-07-31", "duration": 61,
+      "progress": 0,
+      "predecessors": [{ "taskId": "t8", "type": "FS", "lag": 0 }],
+      "parentId": null,
+      "collapsed": false, "color": null, "notes": "", "isMilestone": false
+    },
+    {
+      "id": "t14", "wbs": "4.1", "title": "QA Testing", "assignee": "Bob",
+      "status": "not_started", "priority": "high",
+      "startDate": "2026-06-01", "endDate": "2026-06-26", "duration": 26,
+      "progress": 0,
+      "predecessors": [{ "taskId": "t12", "type": "FS", "lag": 0 }],
+      "parentId": "t13",
+      "collapsed": false, "color": null, "notes": "", "isMilestone": false
+    },
+    {
+      "id": "t15", "wbs": "4.2", "title": "User Acceptance Testing", "assignee": "Alice",
+      "status": "not_started", "priority": "high",
+      "startDate": "2026-06-29", "endDate": "2026-07-17", "duration": 19,
+      "progress": 0,
+      "predecessors": [{ "taskId": "t14", "type": "FS", "lag": 0 }],
+      "parentId": "t13",
+      "collapsed": false, "color": null, "notes": "", "isMilestone": false
+    },
+    {
+      "id": "t16", "wbs": "4.3", "title": "Production Deployment", "assignee": "Charlie",
+      "status": "not_started", "priority": "critical",
+      "startDate": "2026-07-20", "endDate": "2026-07-31", "duration": 12,
+      "progress": 0,
+      "predecessors": [{ "taskId": "t15", "type": "FS", "lag": 0 }],
+      "parentId": "t13",
+      "collapsed": false, "color": null, "notes": "", "isMilestone": false
+    }
+  ],
+  "milestones": [
+    { "id": "m1", "title": "Design Complete", "date": "2026-02-13", "color": "#F39C12", "taskIds": ["t7"] },
+    { "id": "m2", "title": "Dev Complete",    "date": "2026-05-29", "color": "#3fb950", "taskIds": ["t12"] },
+    { "id": "m3", "title": "Go Live",         "date": "2026-07-31", "color": "#f85149", "taskIds": ["t16"] }
+  ],
+  "settings": {
+    "workingDays": [false, true, true, true, true, true, false],
+    "holidays": [],
+    "defaultZoom": "month"
+  }
+}
