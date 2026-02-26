@@ -75,9 +75,9 @@ export class DatePicker {
           value="${this.selectedDate}" placeholder="YYYY-MM-DD" />
       </div>
       <div class="dp-nav-row">
-        <button class="dp-nav-btn" data-dir="-1">◀</button>
+        <button class="dp-nav-btn" data-dir="-1">&lt;</button>
         <span class="dp-month-label">${MONTH_NAMES_FULL[this.month]} ${this.year}</span>
-        <button class="dp-nav-btn" data-dir="1">▶</button>
+        <button class="dp-nav-btn" data-dir="1">&gt;</button>
       </div>
       <div class="dp-weekdays">
         <span>Su</span><span>Mo</span><span>Tu</span><span>We</span>

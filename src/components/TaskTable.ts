@@ -6,11 +6,11 @@ import { DatePicker } from './DatePicker'
 import { PredSelector, AssigneeSelector } from './TaskSelector'
 
 const STATUS_LABELS: Record<Task['status'], string> = {
-  not_started: '○',
-  in_progress: '▶',
-  done: '✓',
-  cancelled: '✗',
-  on_hold: '‖',
+  not_started: '[ ]',
+  in_progress: '[>]',
+  done: '[v]',
+  cancelled: '[x]',
+  on_hold: '[=]',
 }
 const PRIORITY_COLORS: Record<Task['priority'], string> = {
   low: '#6c757d',
@@ -100,9 +100,9 @@ export class TaskTable {
       <td class="col-name">
         <div class="task-name-cell" style="padding-left:${indentPx}px">
           ${isSum
-            ? `<button class="collapse-btn" data-id="${task.id}">${task.collapsed ? '▶' : '▼'}</button>`
+            ? `<button class="collapse-btn" data-id="${task.id}">${task.collapsed ? '+' : '-'}</button>`
             : '<span class="collapse-spacer"></span>'}
-          ${task.isMilestone ? '<span class="milestone-icon">◇</span>' : ''}
+          ${task.isMilestone ? '<span class="milestone-icon">[M]</span>' : ''}
           <span class="priority-dot" style="background:${PRIORITY_COLORS[task.priority]}" title="${task.priority}"></span>
           <span class="task-title editable" data-field="title">${escHtml(task.title)}</span>
         </div>
@@ -130,10 +130,10 @@ export class TaskTable {
         <button class="status-btn" data-id="${task.id}" title="${task.status}">${STATUS_LABELS[task.status]}</button>
       </td>
       <td class="col-actions">
-        <button class="act-btn add-after" data-id="${task.id}" title="Add task below">＋</button>
-        <button class="act-btn delete-btn" data-id="${task.id}" title="Delete">✕</button>
-        <button class="act-btn indent-btn" data-id="${task.id}" title="Indent">→</button>
-        <button class="act-btn outdent-btn" data-id="${task.id}" title="Outdent">←</button>
+        <button class="act-btn add-after" data-id="${task.id}" title="Add task below">+</button>
+        <button class="act-btn delete-btn" data-id="${task.id}" title="Delete">x</button>
+        <button class="act-btn indent-btn" data-id="${task.id}" title="Indent">&gt;</button>
+        <button class="act-btn outdent-btn" data-id="${task.id}" title="Outdent">&lt;</button>
       </td>
     `
 

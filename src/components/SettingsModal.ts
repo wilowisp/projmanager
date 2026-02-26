@@ -121,7 +121,7 @@ export function openSettingsModal(store: Store): void {
     if (!s.pat || !s.owner || !s.repo) { setStatus('Fill in owner, repo, and PAT first', false); return }
     setStatus('Testing…', true)
     const err = await verifyGitHubAccess(s)
-    setStatus(err ?? '✓ Connected successfully', !err)
+    setStatus(err ?? 'OK: Connected successfully', !err)
   })
 
   // Clear
@@ -141,7 +141,7 @@ export function openSettingsModal(store: Store): void {
     saveGitHubSettings(s)
     setStatus('Settings saved. Syncing…', true)
     const ok = await store.syncNow()
-    setStatus(ok ? '✓ Data saved to GitHub Pages!' : 'Sync failed — check PAT permissions', ok)
+    setStatus(ok ? 'OK: Data saved to GitHub Pages!' : 'Sync failed — check PAT permissions', ok)
     if (ok) showToast('Synced to GitHub Pages', 'success')
   })
 

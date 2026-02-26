@@ -13,14 +13,14 @@ export interface ToolbarEvents {
 }
 
 const SYNC_ICONS: Record<SyncStatus, string> = {
-  idle:    '○',
-  syncing: '⟳',
-  ok:      '✓',
-  error:   '✗',
-  offline: '⚡',
+  idle:    '--',
+  syncing: '..',
+  ok:      'OK',
+  error:   '!!',
+  offline: '~~',
 }
 const SYNC_TITLES: Record<SyncStatus, string> = {
-  idle:    'GitHub 미설정 — ⚙ Settings에서 구성',
+  idle:    'GitHub 미설정 — Settings에서 구성',
   syncing: 'GitHub에 저장 중…',
   ok:      'GitHub Pages에 저장됨',
   error:   'GitHub 동기화 실패 — Settings 확인',
@@ -54,8 +54,8 @@ export class Toolbar {
         </div>
       </div>
       <div class="toolbar-center">
-        <button class="btn btn-primary" id="tb-add-task">＋ Task</button>
-        <button class="btn btn-ghost" id="tb-add-milestone">◇ Milestone</button>
+        <button class="btn btn-primary" id="tb-add-task">+ Task</button>
+        <button class="btn btn-ghost" id="tb-add-milestone">+ Milestone</button>
         <div class="separator"></div>
         <div class="zoom-group" role="group" aria-label="Zoom level">
           <button class="zoom-btn" data-zoom="day">Day</button>
@@ -76,10 +76,10 @@ export class Toolbar {
           ${SYNC_ICONS[this.store.getSyncStatus()]} GitHub
         </button>
         <div class="separator"></div>
-        <button class="btn btn-ghost" id="tb-share" title="이 프로젝트를 JSON으로 내보내기">📤 공유</button>
-        <button class="btn btn-ghost" id="tb-import" title="JSON에서 가져오기">📥</button>
-        <button class="btn btn-ghost" id="tb-settings" title="Settings">⚙</button>
-        <a class="btn btn-ghost" href="${import.meta.env.BASE_URL}" title="모든 프로젝트">⊞</a>
+        <button class="btn btn-ghost" id="tb-share" title="이 프로젝트를 JSON으로 내보내기">Share</button>
+        <button class="btn btn-ghost" id="tb-import" title="JSON에서 가져오기">Import</button>
+        <button class="btn btn-ghost" id="tb-settings" title="Settings">Settings</button>
+        <a class="btn btn-ghost" href="${import.meta.env.BASE_URL}" title="모든 프로젝트">All</a>
       </div>
     `
 

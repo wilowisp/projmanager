@@ -26,7 +26,7 @@ export class Modal {
 
     const closeBtn = document.createElement('button')
     closeBtn.className = 'modal-close'
-    closeBtn.textContent = '✕'
+    closeBtn.textContent = 'x'
     closeBtn.addEventListener('click', () => this.close())
 
     header.append(this.titleEl, closeBtn)

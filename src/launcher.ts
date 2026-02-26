@@ -115,7 +115,7 @@ function render(): void {
   root.innerHTML = `
     <div class="launcher">
       <header class="launcher-header">
-        <div class="launcher-logo">📋</div>
+        <div class="launcher-logo">[PM]</div>
         <h1>Project Manager</h1>
         <p class="launcher-sub">간트 차트 · 업무 의존관계 · 크리티컬 패스 · 서버 불필요</p>
         <p class="launcher-hint">
@@ -125,10 +125,10 @@ function render(): void {
       </header>
 
       <div class="launcher-toolbar">
-        <button class="btn btn-primary" id="btn-new">＋ 새 프로젝트</button>
+        <button class="btn btn-primary" id="btn-new">+ 새 프로젝트</button>
         <div class="launcher-toolbar-gap"></div>
-        <button class="btn btn-ghost" id="btn-import-all" title="JSON 파일에서 프로젝트 가져오기">📥 가져오기</button>
-        <button class="btn btn-ghost" id="btn-export-all" title="모든 프로젝트를 JSON 파일로 내보내기">📤 전체 내보내기</button>
+        <button class="btn btn-ghost" id="btn-import-all" title="JSON 파일에서 프로젝트 가져오기">Import</button>
+        <button class="btn btn-ghost" id="btn-export-all" title="모든 프로젝트를 JSON 파일로 내보내기">Export All</button>
       </div>
 
       <div class="project-grid" id="project-grid">
@@ -193,15 +193,15 @@ function renderProjectCard(p: ProjectMeta): string {
   const updated = new Date(p.updatedAt).toLocaleDateString('ko-KR')
   return `
     <div class="project-card" data-path="${escHtml(projectPath(p.id))}" data-id="${p.id}">
-      <div class="card-icon">📁</div>
+      <div class="card-icon">[P]</div>
       <div class="card-info">
         <h2 class="card-name">${escHtml(p.name)}</h2>
         <p class="card-desc">${escHtml(p.description || '설명 없음')}</p>
         <span class="card-meta">수정: ${updated}</span>
       </div>
       <div class="card-actions">
-        <button class="card-export btn btn-ghost" data-id="${p.id}" title="이 프로젝트 내보내기">📤</button>
-        <button class="card-delete btn btn-ghost" data-id="${p.id}" title="삭제">✕</button>
+        <button class="card-export btn btn-ghost" data-id="${p.id}" title="이 프로젝트 내보내기">Share</button>
+        <button class="card-delete btn btn-ghost" data-id="${p.id}" title="삭제">Del</button>
       </div>
     </div>
   `
