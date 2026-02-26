@@ -1,6 +1,7 @@
 import type { Store } from '../store'
 import type { Task, ZoomLevel } from '../types'
 import { parseDate, formatDate, addDays, daysBetween, MONTH_NAMES } from '../utils/dates'
+import { serializePredecessors } from '../utils/wbs'
 
 // ── Layout constants ──────────────────────────────────────────────────────────
 const ROW_H = 36
@@ -20,12 +21,17 @@ export class GanttChart {
   private showCritical = false
   private onSelectCallback: ((id: string | null) => void) | null = null
 
-  // drag state
+  // move/resize drag state
   private dragTask: Task | null = null
   private dragMode: 'move' | 'resize' = 'move'
   private dragStartX = 0
   private dragOrigStart = ''
   private dragOrigDur = 0
+
+  // link-draw state
+  private linkDrawSrc: string | null = null
+  private linkLine: SVGLineElement | null = null
+
   constructor(private store: Store) {
     this.zoom = store.getDefaultZoom()
     this.el = document.createElement('div')
@@ -235,6 +241,9 @@ export class GanttChart {
       <marker id="arrow-crit" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto">
         <path d="M0,0 L0,6 L6,3 z" fill="var(--dep-arrow-crit)"/>
       </marker>
+      <marker id="arrow-draw" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto">
+        <path d="M0,0 L0,6 L6,3 z" fill="var(--accent)"/>
+      </marker>
     `
     this.svg.append(defs)
 
@@ -281,8 +290,8 @@ export class GanttChart {
       const x = daysBetween(projStart, parseDate(ms.date)) * dw
       const diamond = document.createElementNS(ns, 'polygon')
       const cy = totalH + 14
-      const r = MILESTONE_R
-      diamond.setAttribute('points', `${x},${cy - r} ${x + r},${cy} ${x},${cy + r} ${x - r},${cy}`)
+      const rr = MILESTONE_R
+      diamond.setAttribute('points', `${x},${cy - rr} ${x + rr},${cy} ${x},${cy + rr} ${x - rr},${cy}`)
       diamond.setAttribute('fill', ms.color)
       diamond.setAttribute('class', 'milestone-diamond')
       const title = document.createElementNS(ns, 'title')
@@ -327,8 +336,8 @@ export class GanttChart {
       const mx = xStart
       const cy = rowIdx * ROW_H + ROW_H / 2
       const diamond = document.createElementNS(ns, 'polygon')
-      const r = MILESTONE_R
-      diamond.setAttribute('points', `${mx},${cy - r} ${mx + r},${cy} ${mx},${cy + r} ${mx - r},${cy}`)
+      const rr = MILESTONE_R
+      diamond.setAttribute('points', `${mx},${cy - rr} ${mx + rr},${cy} ${mx},${cy + rr} ${mx - rr},${cy}`)
       diamond.setAttribute('fill', task.color ?? '#F39C12')
       diamond.setAttribute('class', `task-bar milestone-bar${isSelected ? ' bar-selected' : ''}`)
       diamond.dataset.id = task.id
@@ -382,9 +391,21 @@ export class GanttChart {
     handle.dataset.mode = 'resize'
     g.append(handle)
 
+    // Link handle (circle at right-center of bar, shown on hover)
+    const linkHandle = document.createElementNS(ns, 'circle') as SVGCircleElement
+    linkHandle.setAttribute('cx', String(xStart + barW + 8))
+    linkHandle.setAttribute('cy', String(y + BAR_H / 2))
+    linkHandle.setAttribute('r', '6')
+    linkHandle.setAttribute('fill', 'var(--accent)')
+    linkHandle.setAttribute('class', 'link-handle')
+    linkHandle.setAttribute('cursor', 'crosshair')
+    ;(linkHandle as SVGElement & { dataset: DOMStringMap }).dataset.id = task.id
+    ;(linkHandle as SVGElement & { dataset: DOMStringMap }).dataset.mode = 'link'
+    g.append(linkHandle)
+
     // Tooltip
     const titleEl = document.createElementNS(ns, 'title')
-    titleEl.textContent = `${task.title}\n${task.startDate} → ${task.endDate} (${task.duration}d)\n${task.progress}% complete`
+    titleEl.textContent = `${task.title}\n${task.startDate} → ${task.endDate} (${task.duration}d)\n${task.progress}% complete\n\nDrag ○ to link to another task`
     g.append(titleEl)
 
     this.addBarEvents(g, task)
@@ -400,8 +421,16 @@ export class GanttChart {
     })
 
     el.addEventListener('mousedown', e => {
-      const mode = (e.target as SVGElement).dataset.mode === 'resize' ? 'resize' : 'move'
-      this.startDrag(e as MouseEvent, task, mode)
+      const target = e.target as SVGElement & { dataset: DOMStringMap }
+      const mode = target.dataset?.mode
+      if (mode === 'link') {
+        // Drag from link handle → create predecessor relationship
+        e.stopPropagation()
+        this.startLinkDraw(e as MouseEvent, task)
+      } else {
+        const dragMode = mode === 'resize' ? 'resize' : 'move'
+        this.startDrag(e as MouseEvent, task, dragMode)
+      }
     })
   }
 
@@ -450,11 +479,50 @@ export class GanttChart {
     this.svg.append(path)
   }
 
+  // ── Link Draw ─────────────────────────────────────────────────────────────
+
+  private startLinkDraw(e: MouseEvent, task: Task): void {
+    e.preventDefault()
+    this.linkDrawSrc = task.id
+
+    // Compute start position in SVG coords (right-center of this task's bar)
+    const dw = MIN_DAY_W[this.zoom]
+    const projStart = parseDate(this.store.getProject().startDate)
+    const tasks = this.store.getVisibleTasks()
+    const rowIdx = tasks.indexOf(task)
+    const xStart = daysBetween(projStart, parseDate(task.startDate)) * dw
+    const barW = Math.max(task.duration * dw - 1, 4)
+    const startX = xStart + barW + 8
+    const startY = rowIdx * ROW_H + BAR_Y_OFF + BAR_H / 2
+
+    const ns = 'http://www.w3.org/2000/svg'
+    this.linkLine = document.createElementNS(ns, 'line') as SVGLineElement
+    this.linkLine.setAttribute('x1', String(startX))
+    this.linkLine.setAttribute('y1', String(startY))
+    this.linkLine.setAttribute('x2', String(startX))
+    this.linkLine.setAttribute('y2', String(startY))
+    this.linkLine.setAttribute('stroke', 'var(--accent)')
+    this.linkLine.setAttribute('stroke-width', '2')
+    this.linkLine.setAttribute('stroke-dasharray', '5,3')
+    this.linkLine.setAttribute('marker-end', 'url(#arrow-draw)')
+    this.linkLine.setAttribute('class', 'link-draw-line')
+    this.svg.append(this.linkLine)
+  }
+
+  // Convert mouse event client coords to SVG coordinate space
+  private clientToSvg(e: MouseEvent): { x: number; y: number } | null {
+    const ctm = this.svg.getScreenCTM()
+    if (!ctm) return null
+    const pt = new DOMPoint(e.clientX, e.clientY)
+    const svgPt = pt.matrixTransform(ctm.inverse())
+    return { x: svgPt.x, y: svgPt.y }
+  }
+
   // ── Drag ──────────────────────────────────────────────────────────────────
 
   private setupDrag(): void {
     document.addEventListener('mousemove', e => this.onDragMove(e))
-    document.addEventListener('mouseup', () => this.onDragEnd())
+    document.addEventListener('mouseup', e => this.onDragEnd(e))
   }
 
   private startDrag(e: MouseEvent, task: Task, mode: 'move' | 'resize'): void {
@@ -467,6 +535,16 @@ export class GanttChart {
   }
 
   private onDragMove(e: MouseEvent): void {
+    // Link draw: update temp line endpoint
+    if (this.linkDrawSrc && this.linkLine) {
+      const svgPt = this.clientToSvg(e)
+      if (svgPt) {
+        this.linkLine.setAttribute('x2', String(svgPt.x))
+        this.linkLine.setAttribute('y2', String(svgPt.y))
+      }
+      return
+    }
+
     if (!this.dragTask) return
     const dw = MIN_DAY_W[this.zoom]
     const dx = e.clientX - this.dragStartX
@@ -492,7 +570,35 @@ export class GanttChart {
     }
   }
 
-  private onDragEnd(): void {
+  private onDragEnd(e: MouseEvent): void {
+    // Handle link draw end
+    if (this.linkDrawSrc) {
+      this.linkLine?.remove()
+      this.linkLine = null
+      const src = this.linkDrawSrc
+      this.linkDrawSrc = null
+
+      // Find which task bar (if any) is under the cursor
+      const el = document.elementFromPoint(e.clientX, e.clientY) as Element | null
+      const bar = el?.closest<SVGElement & { dataset: DOMStringMap }>('.task-bar')
+      const targetId = bar?.dataset?.id
+
+      if (targetId && targetId !== src) {
+        const targetTask = this.store.getTask(targetId)
+        const srcTask = this.store.getTask(src)
+        if (targetTask && srcTask) {
+          // Append src as FS predecessor of target (avoid duplicates)
+          const alreadyLinked = targetTask.predecessors.some(p => p.taskId === src)
+          if (!alreadyLinked) {
+            const existing = serializePredecessors(targetTask.predecessors, this.store.getTasks())
+            const newPred = existing ? `${existing},${srcTask.wbs}` : srcTask.wbs
+            this.store.setPredecessorsFromString(targetId, newPred)
+          }
+        }
+      }
+      return
+    }
+
     if (!this.dragTask) return
     const task = this.dragTask
     this.dragTask = null

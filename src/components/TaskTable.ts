@@ -2,6 +2,8 @@ import type { Store } from '../store'
 import type { Task } from '../types'
 import { serializePredecessors } from '../utils/wbs'
 import { showConfirm } from './Modal'
+import { DatePicker } from './DatePicker'
+import { PredSelector, AssigneeSelector } from './TaskSelector'
 
 const STATUS_LABELS: Record<Task['status'], string> = {
   not_started: '○',
@@ -10,13 +12,17 @@ const STATUS_LABELS: Record<Task['status'], string> = {
   cancelled: '✗',
   on_hold: '‖',
 }
-
 const PRIORITY_COLORS: Record<Task['priority'], string> = {
   low: '#6c757d',
   medium: '#0d6efd',
   high: '#fd7e14',
   critical: '#dc3545',
 }
+
+// Singleton pickers — only one open at a time
+const datePicker = { instance: null as DatePicker | null }
+const predSelector = new PredSelector()
+const assigneeSelector = new AssigneeSelector()
 
 export class TaskTable {
   private el: HTMLElement
@@ -32,19 +38,14 @@ export class TaskTable {
     this.listenStore()
   }
 
-  getElement(): HTMLElement {
-    return this.el
-  }
+  getElement(): HTMLElement { return this.el }
 
-  onSelect(fn: (id: string | null) => void): void {
-    this.onSelectCallback = fn
-  }
+  onSelect(fn: (id: string | null) => void): void { this.onSelectCallback = fn }
 
   setSelected(id: string | null): void {
     this.selectedId = id
-    this.el.querySelectorAll<HTMLElement>('.task-row').forEach(row => {
-      row.classList.toggle('selected', row.dataset.id === id)
-    })
+    this.el.querySelectorAll<HTMLElement>('.task-row').forEach(row =>
+      row.classList.toggle('selected', row.dataset.id === id))
   }
 
   // ── Build ─────────────────────────────────────────────────────────────────
@@ -87,13 +88,12 @@ export class TaskTable {
     const isSum = this.store.isSummary(task.id)
     const depth = this.store.getDepth(task)
     const predStr = serializePredecessors(task.predecessors, this.store.getTasks())
+    const indentPx = depth * 18 + 4
 
     const tr = document.createElement('tr')
     tr.className = `task-row${isCritical ? ' critical' : ''}${isSum ? ' summary' : ''}${task.isMilestone ? ' milestone-row' : ''}`
     tr.dataset.id = task.id
     tr.draggable = true
-
-    const indentPx = depth * 18 + 4
 
     tr.innerHTML = `
       <td class="col-wbs"><span class="wbs-num">${task.wbs}</span></td>
@@ -108,24 +108,32 @@ export class TaskTable {
         </div>
       </td>
       <td class="col-dur"><span class="editable" data-field="duration">${task.duration}</span></td>
-      <td class="col-start"><span class="editable" data-field="startDate">${task.startDate}</span></td>
-      <td class="col-end"><span class="editable" data-field="endDate">${task.endDate}</span></td>
+      <td class="col-start">
+        <span class="editable date-cell" data-field="startDate">${task.startDate}</span>
+      </td>
+      <td class="col-end">
+        <span class="editable date-cell" data-field="endDate">${task.endDate}</span>
+      </td>
       <td class="col-pct">
         <div class="progress-cell">
           <div class="progress-bar-mini" style="width:${task.progress}%"></div>
           <span class="editable" data-field="progress">${task.progress}</span>
         </div>
       </td>
-      <td class="col-pred"><span class="editable pred-cell" data-field="predecessors">${predStr}</span></td>
-      <td class="col-assign"><span class="editable" data-field="assignee">${escHtml(task.assignee)}</span></td>
+      <td class="col-pred">
+        <span class="editable picker-cell pred-cell" data-field="predecessors">${predStr || '—'}</span>
+      </td>
+      <td class="col-assign">
+        <span class="editable picker-cell" data-field="assignee">${escHtml(task.assignee) || '—'}</span>
+      </td>
       <td class="col-status">
         <button class="status-btn" data-id="${task.id}" title="${task.status}">${STATUS_LABELS[task.status]}</button>
       </td>
       <td class="col-actions">
         <button class="act-btn add-after" data-id="${task.id}" title="Add task below">＋</button>
         <button class="act-btn delete-btn" data-id="${task.id}" title="Delete">✕</button>
-        <button class="act-btn indent-btn" data-id="${task.id}" title="Indent →">→</button>
-        <button class="act-btn outdent-btn" data-id="${task.id}" title="Outdent ←">←</button>
+        <button class="act-btn indent-btn" data-id="${task.id}" title="Indent">→</button>
+        <button class="act-btn outdent-btn" data-id="${task.id}" title="Outdent">←</button>
       </td>
     `
 
@@ -135,55 +143,68 @@ export class TaskTable {
       this.selectRow(task.id)
     })
 
-    // ── Inline editing ─────────────────────────────────────────────────────
+    // ── Cell interactions ──────────────────────────────────────────────────
     tr.querySelectorAll<HTMLElement>('.editable').forEach(cell => {
-      cell.addEventListener('dblclick', () => this.startEdit(cell, task))
-      cell.addEventListener('keydown', e => {
-        if (e.key === 'F2') { e.preventDefault(); this.startEdit(cell, task) }
-      })
+      const field = cell.dataset.field as keyof Task
+
+      if (field === 'startDate' || field === 'endDate') {
+        // Single-click → date picker
+        cell.addEventListener('click', e => {
+          e.stopPropagation()
+          this.selectRow(task.id)
+          this.openDatePicker(cell, task, field)
+        })
+      } else if (field === 'predecessors') {
+        // Single-click → predecessor selector
+        cell.addEventListener('click', e => {
+          e.stopPropagation()
+          this.selectRow(task.id)
+          this.openPredSelector(cell, task)
+        })
+      } else if (field === 'assignee') {
+        // Single-click → assignee selector
+        cell.addEventListener('click', e => {
+          e.stopPropagation()
+          this.selectRow(task.id)
+          this.openAssigneeSelector(cell, task)
+        })
+      } else {
+        // Double-click → inline text edit
+        cell.addEventListener('dblclick', () => this.startEdit(cell, task))
+        cell.addEventListener('keydown', e => {
+          if (e.key === 'F2') { e.preventDefault(); this.startEdit(cell, task) }
+        })
+      }
     })
 
     // ── Action buttons ─────────────────────────────────────────────────────
     tr.querySelector('.add-after')?.addEventListener('click', e => {
-      e.stopPropagation()
-      this.store.addTask(task.id)
+      e.stopPropagation(); this.store.addTask(task.id)
     })
-
     tr.querySelector('.delete-btn')?.addEventListener('click', async e => {
       e.stopPropagation()
-      const confirmed = await showConfirm(`Delete "${task.title}"?`)
-      if (confirmed) this.store.deleteTask(task.id)
+      if (await showConfirm(`Delete "${task.title}"?`)) this.store.deleteTask(task.id)
     })
-
     tr.querySelector('.indent-btn')?.addEventListener('click', e => {
-      e.stopPropagation()
-      this.store.indentTask(task.id)
+      e.stopPropagation(); this.store.indentTask(task.id)
     })
-
     tr.querySelector('.outdent-btn')?.addEventListener('click', e => {
-      e.stopPropagation()
-      this.store.outdentTask(task.id)
+      e.stopPropagation(); this.store.outdentTask(task.id)
     })
-
-    // ── Collapse button ────────────────────────────────────────────────────
     tr.querySelector('.collapse-btn')?.addEventListener('click', e => {
-      e.stopPropagation()
-      this.store.toggleCollapse(task.id)
+      e.stopPropagation(); this.store.toggleCollapse(task.id)
     })
-
-    // ── Status cycle ───────────────────────────────────────────────────────
     tr.querySelector('.status-btn')?.addEventListener('click', e => {
       e.stopPropagation()
-      const statuses: Task['status'][] = ['not_started', 'in_progress', 'done', 'on_hold', 'cancelled']
-      const idx = statuses.indexOf(task.status)
-      const next = statuses[(idx + 1) % statuses.length]
+      const statuses: Task['status'][] = ['not_started','in_progress','done','on_hold','cancelled']
+      const next = statuses[(statuses.indexOf(task.status) + 1) % statuses.length]
       this.store.updateTask(task.id, { status: next })
     })
 
     // ── Drag-to-reorder ────────────────────────────────────────────────────
     tr.addEventListener('dragstart', () => { this.dragSrc = task.id; tr.classList.add('dragging') })
-    tr.addEventListener('dragend', () => tr.classList.remove('dragging'))
-    tr.addEventListener('dragover', e => e.preventDefault())
+    tr.addEventListener('dragend',   () => tr.classList.remove('dragging'))
+    tr.addEventListener('dragover',  e => e.preventDefault())
     tr.addEventListener('drop', e => {
       e.preventDefault()
       if (this.dragSrc && this.dragSrc !== task.id) {
@@ -195,45 +216,49 @@ export class TaskTable {
     return tr
   }
 
-  // ── Inline Edit ───────────────────────────────────────────────────────────
+  // ── Date Picker ───────────────────────────────────────────────────────────
+
+  private openDatePicker(cell: HTMLElement, task: Task, field: 'startDate' | 'endDate'): void {
+    datePicker.instance?.close()
+    const current = field === 'startDate' ? task.startDate : task.endDate
+    const dp = new DatePicker(current, (date: string) => {
+      if (date) this.store.updateTask(task.id, { [field]: date })
+    })
+    datePicker.instance = dp
+    dp.show(cell)
+  }
+
+  // ── Pred Selector ─────────────────────────────────────────────────────────
+
+  private openPredSelector(cell: HTMLElement, task: Task): void {
+    predSelector.close()
+    predSelector.show(cell, this.store, task.id, (raw: string) => {
+      this.store.setPredecessorsFromString(task.id, raw)
+    })
+  }
+
+  // ── Assignee Selector ─────────────────────────────────────────────────────
+
+  private openAssigneeSelector(cell: HTMLElement, task: Task): void {
+    assigneeSelector.close()
+    assigneeSelector.show(cell, this.store, task.assignee, (value: string) => {
+      this.store.updateTask(task.id, { assignee: value })
+    })
+  }
+
+  // ── Inline Text Edit (title, duration, progress) ──────────────────────────
 
   private startEdit(cell: HTMLElement, task: Task): void {
     if (cell.dataset.editing) return
     cell.dataset.editing = '1'
-
     const field = cell.dataset.field as keyof Task
-    const original = cell.textContent ?? ''
+    const original = cell.textContent?.trim() ?? ''
     cell.classList.add('editing')
 
-    const input = document.createElement(field === 'title' || field === 'assignee' ? 'input' : 'input')
+    const input = document.createElement('input')
     input.type = 'text'
     input.className = 'cell-input'
     input.value = original
-
-    if (field === 'status') {
-      // Use select for status
-      const select = document.createElement('select')
-      select.className = 'cell-select';
-      (['not_started','in_progress','done','on_hold','cancelled'] as Task['status'][]).forEach(s => {
-        const opt = document.createElement('option')
-        opt.value = s
-        opt.textContent = s.replace('_', ' ')
-        if (s === task.status) opt.selected = true
-        select.append(opt)
-      })
-      cell.textContent = ''
-      cell.append(select)
-      select.focus()
-      const commit = () => {
-        this.store.updateTask(task.id, { status: select.value as Task['status'] })
-        delete cell.dataset.editing
-        cell.classList.remove('editing')
-      }
-      select.addEventListener('blur', commit)
-      select.addEventListener('keydown', e => { if (e.key === 'Enter') select.blur() })
-      return
-    }
-
     cell.textContent = ''
     cell.append(input)
     input.select()
@@ -242,10 +267,8 @@ export class TaskTable {
       delete cell.dataset.editing
       cell.classList.remove('editing')
       const val = input.value.trim()
-      if (val === original) { cell.textContent = original; return }
-      this.commitEdit(task, field, val)
+      if (val !== original) this.commitEdit(task, field, val)
     }
-
     const cancel = () => {
       delete cell.dataset.editing
       cell.classList.remove('editing')
@@ -254,43 +277,28 @@ export class TaskTable {
 
     input.addEventListener('blur', commit)
     input.addEventListener('keydown', e => {
-      if (e.key === 'Enter') { e.preventDefault(); input.blur() }
+      if (e.key === 'Enter')  { e.preventDefault(); input.blur() }
       if (e.key === 'Escape') { e.preventDefault(); input.removeEventListener('blur', commit); cancel() }
       if (e.key === 'Tab') {
         e.preventDefault()
         input.blur()
-        // Move to next/prev editable in same row
-        const row = cell.closest('tr')!
-        const cells = [...row.querySelectorAll<HTMLElement>('.editable')]
+        const cells = [...(cell.closest('tr')!).querySelectorAll<HTMLElement>('.editable:not(.date-cell):not(.picker-cell)')]
         const idx = cells.indexOf(cell)
-        const next = cells[e.shiftKey ? idx - 1 : idx + 1]
-        next?.dispatchEvent(new MouseEvent('dblclick'))
+        cells[e.shiftKey ? idx - 1 : idx + 1]?.dispatchEvent(new MouseEvent('dblclick'))
       }
     })
   }
 
   private commitEdit(task: Task, field: keyof Task, val: string): void {
-    if (field === 'predecessors') {
-      this.store.setPredecessorsFromString(task.id, val)
-      return
-    }
     if (field === 'duration') {
       const n = parseInt(val, 10)
       if (!isNaN(n) && n >= 1) this.store.updateTask(task.id, { duration: n })
-      return
-    }
-    if (field === 'progress') {
+    } else if (field === 'progress') {
       const n = Math.min(100, Math.max(0, parseInt(val, 10)))
       if (!isNaN(n)) this.store.updateTask(task.id, { progress: n })
-      return
+    } else {
+      this.store.updateTask(task.id, { [field]: val } as Partial<Task>)
     }
-    if (field === 'startDate' || field === 'endDate') {
-      if (/^\d{4}-\d{2}-\d{2}$/.test(val)) {
-        this.store.updateTask(task.id, { [field]: val })
-      }
-      return
-    }
-    this.store.updateTask(task.id, { [field]: val } as Partial<Task>)
   }
 
   // ── Store listener ────────────────────────────────────────────────────────
@@ -305,35 +313,32 @@ export class TaskTable {
 
   // ── Helpers ───────────────────────────────────────────────────────────────
 
-  private selectRow(id: string): void {
+  selectRow(id: string): void {
     this.selectedId = id
     this.restoreSelection()
     this.onSelectCallback?.(id)
   }
 
   private restoreSelection(): void {
-    this.el.querySelectorAll<HTMLElement>('.task-row').forEach(row => {
-      row.classList.toggle('selected', row.dataset.id === this.selectedId)
-    })
+    this.el.querySelectorAll<HTMLElement>('.task-row').forEach(row =>
+      row.classList.toggle('selected', row.dataset.id === this.selectedId))
   }
 
   private setupKeyboard(): void {
     document.addEventListener('keydown', e => {
       if (!this.selectedId) return
-      const el = document.activeElement
-      if (el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || (el as HTMLElement).contentEditable === 'true')) return
+      const active = document.activeElement
+      if (active && (active.tagName === 'INPUT' || active.tagName === 'SELECT' ||
+          (active as HTMLElement).contentEditable === 'true')) return
 
       if (e.key === 'Delete' || e.key === 'Backspace') {
         const task = this.store.getTask(this.selectedId)
-        if (task) {
-          showConfirm(`Delete "${task.title}"?`).then(ok => {
-            if (ok) this.store.deleteTask(this.selectedId!)
-          })
-        }
-        return
+        if (task) showConfirm(`Delete "${task.title}"?`).then(ok => {
+          if (ok) this.store.deleteTask(this.selectedId!)
+        })
       }
-      if (e.key === 'Insert' || (e.key === 'Enter' && !e.shiftKey)) {
-        if (e.key === 'Enter') e.preventDefault()
+      if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault()
         this.store.addTask(this.selectedId)
       }
     })
